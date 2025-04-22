@@ -1,0 +1,27 @@
+{
+  "titulo": "RigQuiropr\u00e1ctico en Copiap\u00f3",
+  "subtitulo": "Recupera tu movimiento, sin dolor, sin l\u00edmites.",
+  "servicios": [
+    {
+      "nombre": "Sesi\u00f3n \u00fanica",
+      "descripcion": "Evaluaci\u00f3n y ajuste quiropr\u00e1ctico completo.",
+      "precio": "$40.000"
+    },
+    {
+      "nombre": "Pack 2 sesiones",
+      "descripcion": "Para continuidad del tratamiento o compartir.",
+      "precio": "$70.000"
+    },
+    {
+      "nombre": "Pack 3 sesiones",
+      "descripcion": "Para procesos de recuperaci\u00f3n m\u00e1s complejos.",
+      "precio": "$100.000"
+    },
+    {
+      "nombre": "Pack 5 sesiones",
+      "descripcion": "Ideal para tratamiento profundo y seguimiento.",
+      "precio": "$160.000"
+    }
+  ],
+  "contacto": "Centro de Salud Fleming, Van Buren 129, Copiap\u00f3"
+}
