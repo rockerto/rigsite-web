@@ -11,7 +11,9 @@ export default function Home() {
       .then(setInfo);
   }, []);
 
-  if (!info) return <div className="p-6 text-center">Cargando...</div>;
+  if (!info) {
+    return <div className="p-6 text-center">Cargando...</div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
@@ -33,3 +35,21 @@ export default function Home() {
             <h3 className="text-xl font-semibold text-blue-700">{servicio.nombre}</h3>
             <p className="text-gray-600">{servicio.descripcion}</p>
             <p className="font-bold mt-2">{servicio.precio}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="text-center">
+        <h2 className="text-2xl font-semibold mb-2">Contacto</h2>
+        <p className="text-gray-600">{info.contacto}</p>
+        <a
+          href="https://wa.me/56989967350?text=Hola,%20quiero%20agendar%20una%20hora"
+          target="_blank"
+          className="inline-block mt-2 px-4 py-2 bg-green-600 text-white rounded"
+        >
+          WhatsApp
+        </a>
+      </section>
+    </div>
+  );
+}
