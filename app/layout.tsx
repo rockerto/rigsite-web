@@ -1,3 +1,5 @@
+import './globals.css';
+
 export const metadata = {
   title: "RigQuiropráctico",
   description: "Recupera tu movimiento, sin dolor, sin límites.",
