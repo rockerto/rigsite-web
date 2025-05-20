@@ -1,7 +1,7 @@
 // src/app/logs/page.tsx
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react"; // Importado useCallback
 import {
   collection,
   getDocs,
@@ -11,7 +11,7 @@ import {
   limit as firestoreLimit, // Renombrar para evitar conflicto con un posible 'limit' de JS
   Timestamp, // Importar Timestamp para tipado
 } from "firebase/firestore";
-import { initializeApp, getApps, getApp } from "firebase/app"; // Importar getApps y getApp para inicialización segura
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app"; // Importar getApps, getApp y FirebaseApp
 
 // Configuración de Firebase obtenida desde variables de entorno.
 // ⚠️ Asegúrate de que estas variables de entorno estén configuradas en Vercel y en tu .env.local para desarrollo.
@@ -27,7 +27,7 @@ const firebaseConfig = {
 
 // Inicializar Firebase de forma segura (evita re-inicializaciones)
 // Esto asegura que la app de Firebase se inicialice solo una vez.
-let app;
+let app: FirebaseApp | undefined; // CORREGIDO: Tipado explícito para app
 // Verifica que todas las variables de configuración necesarias estén presentes
 if (
     firebaseConfig.apiKey &&
@@ -47,7 +47,7 @@ if (
     // Podrías manejar este caso mostrando un error en la UI o deshabilitando la funcionalidad de Firebase.
 }
 
-const db = getFirestore(app); // 'app' podría ser undefined si la configuración no está completa
+const db = app ? getFirestore(app) : undefined; // 'app' podría ser undefined si la configuración no está completa, db también
 
 // Definición de la interfaz para los logs, más específica
 interface LogEntry {
@@ -57,7 +57,7 @@ interface LogEntry {
   sessionId?: string;
   ip?: string;
   timestamp: Timestamp | number; // Puede ser un Timestamp de Firestore o un número (Date.now())
-  [key: string]: unknown; // CORREGIDO: de 'any' a 'unknown'
+  [key: string]: unknown;
 }
 
 // Componentes de icono simples para botones (SVG)
@@ -77,32 +77,31 @@ export default function LogViewerPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterRole, setFilterRole] = useState<string>(""); // Para filtrar por rol
-  const [filterSessionId, setFilterSessionId] = useState<string>(""); // Para filtrar por sessionId
-  const [logLimit, setLogLimit] = useState<number>(50); // Para configurar el límite de logs
-  const [isFirebaseReady, setIsFirebaseReady] = useState(false); // Estado para verificar si Firebase está listo
+  const [filterRole, setFilterRole] = useState<string>("");
+  const [filterSessionId, setFilterSessionId] = useState<string>("");
+  const [logLimit, setLogLimit] = useState<number>(50);
+  const [isFirebaseReady, setIsFirebaseReady] = useState(false);
 
   useEffect(() => {
-    // Verificar si la configuración de Firebase está completa y la app inicializada
-    if (firebaseConfig.apiKey && app) {
+    if (firebaseConfig.apiKey && app && db) { // Asegurarse que db también esté definido
         setIsFirebaseReady(true);
     } else {
-        setError("La configuración de Firebase no está completa. Por favor, verifica las variables de entorno.");
+        setError("La configuración de Firebase no está completa o Firebase no se pudo inicializar. Por favor, verifica las variables de entorno.");
         setLoading(false);
     }
   }, []);
 
 
-  // Función para cargar los logs desde Firestore
-  const fetchLogs = async (currentLimit: number) => {
-    if (!isFirebaseReady || !db) { // Asegurarse que db esté disponible
+  // Función para cargar los logs desde Firestore, envuelta en useCallback
+  const fetchLogs = useCallback(async (currentLimit: number) => {
+    if (!isFirebaseReady || !db) {
         setError("Firebase no está inicializado correctamente. No se pueden cargar los logs.");
         setLoading(false);
         return;
     }
     setLoading(true);
     setError(null);
-    console.log(`Fetching ${currentLimit} logs...`); // Log para depuración
+    console.log(`Fetching ${currentLimit} logs...`);
     try {
       const logsRef = collection(db, "rigbot_logs");
       const q = query(
@@ -116,12 +115,12 @@ export default function LogViewerPage() {
         return {
           id: doc.id,
           ...data,
-          timestamp: data.timestamp, // El timestamp ya viene de Firestore
+          timestamp: data.timestamp,
         } as LogEntry;
       });
-      console.log(`Fetched ${results.length} logs successfully.`); // Log para depuración
+      console.log(`Fetched ${results.length} logs successfully.`);
       setLogs(results);
-    } catch (err: unknown) { // CORREGIDO: de 'any' a 'unknown'
+    } catch (err: unknown) {
       console.error("Error fetching logs from Firestore:", err);
       let errorMessage = "Error desconocido. Revisa la consola para más detalles.";
       if (err instanceof Error) {
@@ -129,24 +128,22 @@ export default function LogViewerPage() {
       } else if (typeof err === 'string') {
         errorMessage = err;
       }
-      setError(
-        `Error al cargar los logs: ${errorMessage}`
-      );
+      setError(`Error al cargar los logs: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isFirebaseReady]); // db no es necesario como dependencia si es estable tras la inicialización
 
   // useEffect para cargar los logs cuando el componente se monta o cambia el límite, y Firebase está listo
   useEffect(() => {
     if (isFirebaseReady) {
         fetchLogs(logLimit);
     }
-  }, [logLimit, isFirebaseReady]); // Se ejecuta cuando logLimit o isFirebaseReady cambian
+  }, [logLimit, isFirebaseReady, fetchLogs]); // CORREGIDO: Añadido fetchLogs a las dependencias
 
   const handleRefresh = () => {
     if (isFirebaseReady) {
-        fetchLogs(logLimit); // Llama a fetchLogs con el límite actual
+        fetchLogs(logLimit);
     } else {
         setError("Firebase no está listo. No se pueden actualizar los logs.");
     }
@@ -157,7 +154,7 @@ export default function LogViewerPage() {
     return logs.filter((log) => {
       const roleMatch = filterRole ? log.role === filterRole : true;
       const sessionMatch = filterSessionId
-        ? log.sessionId?.toLowerCase().includes(filterSessionId.toLowerCase()) // Búsqueda case-insensitive
+        ? log.sessionId?.toLowerCase().includes(filterSessionId.toLowerCase())
         : true;
       return roleMatch && sessionMatch;
     });
@@ -167,14 +164,14 @@ export default function LogViewerPage() {
   const formatTimestamp = (timestamp: Timestamp | number | undefined): string => {
     if (!timestamp) return "-";
     let date: Date;
-    if (typeof timestamp === "object" && "toDate" in timestamp) { // Es un Timestamp de Firestore
+    if (typeof timestamp === "object" && "toDate" in timestamp) {
       date = timestamp.toDate();
-    } else if (typeof timestamp === "number") { // Es un número (ej. de Date.now())
+    } else if (typeof timestamp === "number") {
       date = new Date(timestamp);
     } else {
       return "Fecha inválida";
     }
-    return date.toLocaleString("es-CL", { // Formato chileno
+    return date.toLocaleString("es-CL", {
       year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit',
       hour12: false
@@ -184,26 +181,20 @@ export default function LogViewerPage() {
   // Función para convertir los datos de logs a formato CSV
   const convertToCSV = (data: LogEntry[]) => {
     if (!data || data.length === 0) return "";
-    // Definir las cabeceras del CSV
     const headers = ["ID Documento", "Rol", "Contenido", "Session ID", "IP", "Timestamp (es-CL)"];
-    const csvRows = [
-      headers.join(","), // Fila de cabeceras
-    ];
-
-    // Mapear cada log a una fila del CSV
+    const csvRows = [headers.join(",")];
     data.forEach((log) => {
       const row = [
-        `"${log.id || ""}"`, // ID del documento de Firestore
+        `"${log.id || ""}"`,
         `"${log.role || ""}"`,
-        `"${(log.content || "").replace(/"/g, '""').replace(/\n/g, '\\n')}"`, // Escapar comillas dobles y saltos de línea
+        `"${(log.content || "").replace(/"/g, '""').replace(/\n/g, '\\n')}"`,
         `"${log.sessionId || ""}"`,
         `"${log.ip || ""}"`,
         `"${formatTimestamp(log.timestamp) || ""}"`,
       ];
       csvRows.push(row.join(","));
     });
-
-    return csvRows.join("\n"); // Unir todas las filas con saltos de línea
+    return csvRows.join("\n");
   };
 
   // Manejador para la exportación a CSV
@@ -214,20 +205,17 @@ export default function LogViewerPage() {
     }
     const csvData = convertToCSV(filteredLogs);
     if (csvData) {
-      const blob = new Blob(["\uFEFF" + csvData], { type: "text/csv;charset=utf-8;" }); // Añadir BOM para UTF-8 en Excel
+      const blob = new Blob(["\uFEFF" + csvData], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       if (link.download !== undefined) {
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
         const dateStr = new Date().toISOString().slice(0, 10);
-        link.setAttribute(
-          "download",
-          `rigbot_logs_${dateStr}.csv` // Nombre del archivo CSV
-        );
+        link.setAttribute("download", `rigbot_logs_${dateStr}.csv`);
         link.style.visibility = "hidden";
         document.body.appendChild(link);
-        link.click(); // Simular click para descargar
-        document.body.removeChild(link); // Limpiar
+        link.click();
+        document.body.removeChild(link);
         URL.revokeObjectURL(url);
       }
     } else {
@@ -262,7 +250,6 @@ export default function LogViewerPage() {
                     <option value="">Todos</option>
                     <option value="user">Usuario (user)</option>
                     <option value="assistant">Asistente (assistant)</option>
-                    {/* Puedes añadir más roles si los llegas a usar */}
                 </select>
             </div>
             <div>
@@ -325,7 +312,7 @@ export default function LogViewerPage() {
       )}
 
       {/* Indicador de Carga o Tabla de Logs */}
-      {!isFirebaseReady && !loading && !error && ( // Mensaje específico si Firebase no está configurado
+      {!isFirebaseReady && !loading && !error && (
         <div className="text-center py-12 bg-white rounded-lg shadow-md p-6">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-20 h-20 text-amber-500 mx-auto mb-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.008v.008H12v-.008z" />
@@ -348,19 +335,19 @@ export default function LogViewerPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
             </svg>
             <p className="text-slate-500 text-xl">No se encontraron logs.</p>
-            {logs.length > 0 && ( // Mostrar este mensaje solo si hay logs pero no coinciden con el filtro
-                 <p className="text-sm text-slate-400 mt-2">Intenta ajustar los filtros o presiona &quot;Actualizar&quot;.</p> // CORREGIDO: "Actualizar"
+            {logs.length > 0 && (
+                 <p className="text-sm text-slate-400 mt-2">Intenta ajustar los filtros o presiona &quot;Actualizar&quot;.</p>
             )}
-             {logs.length === 0 && ( // Mostrar este mensaje si no hay logs en la base de datos en absoluto
+             {logs.length === 0 && (
                  <p className="text-sm text-slate-400 mt-2">Parece que aún no hay logs registrados en la base de datos.</p>
             )}
         </div>
       )}
       
-      {isFirebaseReady && !loading && filteredLogs.length > 0 && !error && ( // Solo mostrar la tabla si no hay error y hay logs filtrados
+      {isFirebaseReady && !loading && filteredLogs.length > 0 && !error && (
         <div className="overflow-x-auto bg-white rounded-xl shadow-xl">
           <table className="min-w-full text-sm divide-y divide-slate-200">
-            <thead className="bg-slate-200 sticky top-0 z-10"> {/* Cabecera pegajosa */}
+            <thead className="bg-slate-200 sticky top-0 z-10">
               <tr>
                 <th scope="col" className="px-5 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                   Fecha y Hora
@@ -414,7 +401,7 @@ export default function LogViewerPage() {
       )}
       <footer className="mt-12 text-center text-sm text-slate-500 py-4 border-t border-slate-200">
         <p>&copy; {new Date().getFullYear()} RigBot Log System. Creado con cariño para Rigquiropráctico.</p>
-        <p>Inspirado por el gran Rigo y el &quot;codificador estrella&quot; Gemini. ✨</p> {/* CORREGIDO: "codificador estrella" */}
+        <p>Inspirado por el gran Rigo y el &quot;codificador estrella&quot; Gemini. ✨</p>
       </footer>
     </div>
   );
