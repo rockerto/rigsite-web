@@ -283,13 +283,13 @@ export default function ClientDashboard() {
                                  copyStatus === 'error' ? "Error al Copiar" : 
                                  "Copiar Código del Widget"}
                             </button>
-                             {copyStatus === 'error' && <p className="text-red-600 text-xs mt-2 text-center">No se pudo copiar. Intenta manualmente.</p>}
+                             {copyStatus === 'error' && <p className="text-red-600 text-xs mt-2 text-center">No se pudo copiar. Intenta manually.</p>}
                         </div>
                     ) : (
                         <div className="p-4 text-center bg-amber-50 border border-amber-300 text-amber-700 rounded-lg">
                             <ExclamationTriangleIcon className="w-8 h-8 mx-auto mb-2 text-amber-500" />
                             <p className="font-semibold">Define una Clave Secreta</p>
-                            <p className="text-sm">Para generar el código de integración del widget, primero debes ingresar y guardar una "Clave Secreta del Widget" en la sección de configuración.</p>
+                            <p className="text-sm">Para generar el código de integración del widget, primero debes ingresar y guardar una &quot;Clave Secreta del Widget&quot; en la sección de configuración.</p> {/* CORREGIDO */}
                         </div>
                     )}
                 </section>
