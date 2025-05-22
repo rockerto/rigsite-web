@@ -286,7 +286,8 @@ export default function ChatbotSettingsPage() {
                                 className="mt-1 block w-full px-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition h-48 font-mono text-xs"
                                 disabled={saving}
                             />
-                            <p className="mt-1 text-xs text-slate-500">Este es el prompt de sistema para OpenAI. Edita con cuidado. Puedes usar placeholders como ${'{DAYS_TO_QUERY_CALENDAR}'} o ${'{MAX_DAYS_FOR_USER_REQUEST}'} que se reemplazarán con los valores de la sección "Configuración del Calendario".</p>
+                            {/* ***** CORRECCIÓN AQUÍ ***** */}
+                            <p className="mt-1 text-xs text-slate-500">Este es el prompt de sistema para OpenAI. Edita con cuidado. Puedes usar placeholders como ${'{DAYS_TO_QUERY_CALENDAR}'} o ${'{MAX_DAYS_FOR_USER_REQUEST}'} que se reemplazarán con los valores de la sección &ldquo;Configuración del Calendario&rdquo;.</p>
                         </div>
                     </div>
                 </section>
