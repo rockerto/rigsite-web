@@ -1,10 +1,9 @@
 // app/client/page.tsx
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react"; // CORREGIDO: Añadido useMemo a la importación
 import { doc, getDoc, setDoc, getFirestore } from "firebase/firestore";
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import Link from 'next/link'; // Importar Link para la navegación
 
 // ⚠️ ADVERTENCIA DE SEGURIDAD: Mover a variables de entorno es altamente recomendado.
 const firebaseConfig = {
@@ -62,13 +61,6 @@ const ClipboardIcon = ({ className = "w-5 h-5 mr-2" }: { className?: string }) =
     </svg>
 );
 
-const Cog8ToothIcon = ({ className = "w-5 h-5 mr-2" }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.39 1.024 0 1.414l-.527.737c-.25.35-.272.806-.108 1.204.165.399.505.71.93.78l.895.149c.542.09.94.56.94 1.11v1.093c0 .55-.398 1.02-.94 1.11l-.895.149c-.425.07-.765.383-.93.78-.165.398-.142.854.108 1.204l.527.738c.39.39.39 1.024 0 1.414l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.399.165-.71.505-.781.93l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527a1.125 1.125 0 01-1.45-.12l-.773-.774a1.125 1.125 0 010-1.414l.527-.737c.25-.35.273-.806.108-1.204-.165-.399-.506-.71-.93-.78l-.895-.149c-.542-.09-.94-.56-.94-1.11v-1.094c0-.55.398-1.02.94-1.11l.895-.149c.424-.07.765-.383.93-.78.165-.398.142-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.399-.165.71-.505.78-.93l.15-.894z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-);
-
 
 export default function ClientDashboard() {
   const [name, setName] = useState("");
@@ -76,10 +68,11 @@ export default function ClientDashboard() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
-  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle");
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null); // Específico para guardar
+  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle"); // Para feedback de copia
   const [isFirebaseReady, setIsFirebaseReady] = useState(false);
   
+  // En una aplicación real, esto sería dinámico (ej. ID del usuario autenticado)
   const clientId = "demo-client"; 
 
   useEffect(() => {
@@ -92,10 +85,7 @@ export default function ClientDashboard() {
   }, []);
 
   const fetchData = useCallback(async () => {
-    if (!isFirebaseReady || !db) {
-        setLoading(false); 
-        return;
-    }
+    if (!isFirebaseReady || !db) return;
 
     setLoading(true);
     setError(null);
@@ -108,7 +98,8 @@ export default function ClientDashboard() {
         setName(data.name || "");
         setClave(data.clave || "");
       } else {
-        console.log(`No se encontró el documento para el cliente: ${clientId}.`);
+        console.log(`No se encontró el documento para el cliente: ${clientId}. Se pueden establecer valores por defecto.`);
+        // Opcional: setError("No se encontró la configuración del cliente.");
       }
     } catch (err) {
       console.error("Error fetching client data:", err);
@@ -116,13 +107,11 @@ export default function ClientDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [isFirebaseReady, clientId]);
+  }, [isFirebaseReady, clientId]); // clientId añadido por si se hiciera dinámico
 
   useEffect(() => {
-    if(isFirebaseReady) { 
-        fetchData();
-    }
-  }, [isFirebaseReady, fetchData]); 
+    fetchData();
+  }, [fetchData]);
 
 
   const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -137,15 +126,11 @@ export default function ClientDashboard() {
     setSaveSuccessMessage(null);
     setCopyStatus("idle");
 
-    const dataToSave = {
-        name,
-        clave,
-    };
-
     try {
       const ref = doc(db, "clients", clientId);
-      await setDoc(ref, dataToSave, { merge: true });
+      await setDoc(ref, { name, clave }, { merge: true });
       setSaveSuccessMessage("¡Configuración guardada exitosamente!");
+      // Si la clave cambia, el rigbotScript se actualizará automáticamente
     } catch (err) {
       console.error("Error saving client data:", err);
       setError("Error al guardar la configuración. Por favor, intenta de nuevo.");
@@ -155,8 +140,10 @@ export default function ClientDashboard() {
     }
   };
 
+  // Generar el script del widget. Usamos useMemo para que solo se recalcule si 'clave' cambia.
   const rigbotScript = useMemo(() => {
     if (!clave) return "";
+    // Asegúrate de que la URL base del widget sea la correcta para tu entorno de producción
     const widgetBaseUrl = process.env.NEXT_PUBLIC_RIGBOT_WIDGET_URL || "https://rigbot-product.vercel.app";
     return `<script src="${widgetBaseUrl}/rigbot-widget.js?clave=${encodeURIComponent(clave)}&clientId=${encodeURIComponent(clientId)}"></script>`;
   }, [clave, clientId]);
@@ -170,7 +157,7 @@ export default function ClientDashboard() {
     try {
       await navigator.clipboard.writeText(rigbotScript);
       setCopyStatus("success");
-      setTimeout(() => setCopyStatus("idle"), 2500);
+      setTimeout(() => setCopyStatus("idle"), 2500); // Resetear estado del botón de copiar
     } catch (err) {
       console.error("Failed to copy script:", err);
       setError("No se pudo copiar el código automáticamente. Por favor, cópialo manualmente.");
@@ -179,16 +166,7 @@ export default function ClientDashboard() {
     }
   };
   
-  if (!isFirebaseReady && loading) { 
-    return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-4 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-sky-600 mx-auto"></div>
-            <p className="text-slate-600 mt-4 text-lg">Inicializando...</p>
-        </div>
-    );
-  }
-  
-  if (!isFirebaseReady && !loading) { 
+  if (!isFirebaseReady && !loading) {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-100 p-4 text-center">
             <ExclamationTriangleIcon className="w-12 h-12 text-red-500 mb-4" />
@@ -205,6 +183,8 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-200 via-sky-100 to-indigo-100 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
       <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden">
         <header className="bg-slate-800 p-6 md:p-8 text-center">
+            {/* Puedes añadir tu logo aquí si lo deseas, asegurándote que sea accesible */}
+            {/* <img src="/path-to-your-logo.png" alt="Logo Empresa" className="w-32 h-auto mx-auto mb-4"/> */}
             <h1 className="text-3xl font-bold text-white">Panel de Cliente</h1>
             <p className="text-sky-200 mt-2">Administra la configuración y obtén el código de tu RigBot.</p>
         </header>
@@ -241,7 +221,7 @@ export default function ClientDashboard() {
                         </label>
                         <input
                             id="clientClave"
-                            type="password" 
+                            type="password" // Mantenido como password para la edición
                             value={clave}
                             onChange={(e) => setClave(e.target.value)}
                             placeholder="Ingresa una clave segura para tu widget"
@@ -252,6 +232,7 @@ export default function ClientDashboard() {
                         </div>
                     </section>
                     
+                    {/* Mensajes de feedback para Guardar */}
                     {error && (
                     <div className="flex items-center p-3 my-4 bg-red-50 border border-red-300 text-red-700 rounded-lg text-sm animate-pulse">
                         <ExclamationTriangleIcon />
@@ -275,19 +256,7 @@ export default function ClientDashboard() {
                     </button>
                 </form>
 
-                {/* Botón para ir a Configuración Avanzada */}
-                <div className="mt-8 pt-8 border-t border-slate-200">
-                    <Link href="/client/chatbot-settings" legacyBehavior>
-                        <a className="w-full flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
-                            <Cog8ToothIcon className="w-5 h-5 mr-2" />
-                            Configuración Avanzada del Chatbot
-                        </a>
-                    </Link>
-                     <p className="mt-2 text-xs text-center text-slate-500">Personaliza el comportamiento, mensajes y más de tu RigBot.</p>
-                </div>
-
-
-                <section aria-labelledby="widget-code-title" className="mt-10">
+                <section aria-labelledby="widget-code-title">
                     <h2 id="widget-code-title" className="text-xl font-semibold text-slate-700 mb-4 border-b pb-2 pt-6">Código de Integración del Widget</h2>
                     {clave ? (
                         <div className="space-y-4">
@@ -314,20 +283,20 @@ export default function ClientDashboard() {
                                  copyStatus === 'error' ? "Error al Copiar" : 
                                  "Copiar Código del Widget"}
                             </button>
-                             {copyStatus === 'error' && <p className="text-red-600 text-xs mt-2 text-center">No se pudo copiar. Intenta manualmente.</p>}
+                             {copyStatus === 'error' && <p className="text-red-600 text-xs mt-2 text-center">No se pudo copiar. Intenta manually.</p>}
                         </div>
                     ) : (
                         <div className="p-4 text-center bg-amber-50 border border-amber-300 text-amber-700 rounded-lg">
                             <ExclamationTriangleIcon className="w-8 h-8 mx-auto mb-2 text-amber-500" />
                             <p className="font-semibold">Define una Clave Secreta</p>
-                            <p className="text-sm">Para generar el código de integración del widget, primero debes ingresar y guardar una "Clave Secreta del Widget" en la sección de configuración.</p>
+                            <p className="text-sm">Para generar el código de integración del widget, primero debes ingresar y guardar una &quot;Clave Secreta del Widget&quot; en la sección de configuración.</p> {/* CORREGIDO */}
                         </div>
                     )}
                 </section>
             </>
             )}
             <footer className="mt-12 pt-8 border-t border-slate-200 text-center text-xs text-slate-500">
-                <p>© {new Date().getFullYear()} RigBot Systems. Potenciando la comunicación de tu negocio.</p>
+                <p>&copy; {new Date().getFullYear()} RigBot Systems. Potenciando la comunicación de tu negocio.</p>
             </footer>
         </div>
       </div>
