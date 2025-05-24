@@ -1,7 +1,9 @@
+// rigsite-fixed/src/app/layout.tsx
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Link from "next/link"; // <-- necesario para que <Link /> funcione
+import Link from "next/link";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,15 +28,28 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
+        {/* Definimos window.RIGBOT_CLIENT_ID ANTES de cargar el widget. */}
         <script
-          src="https://rigbot-product.vercel.app/rigbot-widget.js"
+          dangerouslySetInnerHTML={{
+            __html: `window.RIGBOT_CLIENT_ID = "demo-client";`, 
+            // Para tus pruebas en rigsite-web.vercel.app, "demo-client" está bien.
+            // Si esta página fuera a mostrarse para un cliente específico autenticado, 
+            // aquí podrías inyectar dinámicamente el ID de ese cliente.
+          }}
+        />
+        {/* Cargamos el widget DESDE LA CARPETA PUBLIC DE ESTE MISMO PROYECTO (rigsite-fixed) */}
+        <script
+          src="/rigbot-widget.js" // Ruta relativa a la raíz del sitio rigsite-web
           defer
         ></script>
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <nav className="bg-white shadow px-4 py-2 mb-4">
+          <Link href="/client" className="text-blue-600 underline text-sm hover:text-blue-800 mr-4">
+            Panel Cliente
+          </Link>
           <Link href="/logs" className="text-blue-600 underline text-sm hover:text-blue-800">
-            Visor de Logs
+            Visor de Logs (Demo)
           </Link>
         </nav>
         {children}
