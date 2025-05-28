@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pruebas de Seguridad Rigbot (Sistema Backend v2)</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background: #f0f2f5;
+      padding: 2rem;
+      line-height: 1.6;
+      color: #333;
+    }
+    h1 { color: #2c3e50; }
+    label, input, select, button {
+      font-size: 1rem;
+      margin: 0.3rem 0;
+      padding: 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    input[type="text"] { width: calc(100% - 1.2rem); max-width: 400px; }
+    button {
+      background-color: #007bff;
+      color: white;
+      border-color: #007bff;
+      cursor: pointer;
+      padding: 0.6rem 1rem;
+    }
+    button:hover { background-color: #0056b3; }
+    hr { border: 0; border-top: 1px solid #ddd; margin: 2rem 0; }
+    #status {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #e9ecef;
+      border-left: 4px solid #007bff;
+    }
+    code {
+      background: #e0e0e0;
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>⚔️ Rigbot - Pruebas de Seguridad (Carga desde Backend)</h1>
+  
+  <form id="configForm">
+    <label for="widgetApiUrl">URL del Endpoint del Widget (<code>/api/widget</code>):</label><br/>
+    <input type="text" id="widgetApiUrl" value="https://rigbot-product.vercel.app/api/widget" style="width: calc(100% - 1.2rem); max-width: 500px;"/><br/>
+    <small>Esta debe ser la URL de tu endpoint en <code>rigbot-product</code> que sirve el cargador del widget (¡sin .js al final!).</small><br/><br/>
+
+    <label for="clientIdInput">Client ID (para query param):</label><br/>
+    <input type="text" id="clientIdInput" placeholder="Ej: tu-client-id-real o demo-client" value="demo-client"/><br/>
+    <small>Se añadirá como <code>?clientId=VALOR</code> a la URL del widget.</small><br/><br/>
+    
+    <label for="claveInput">Clave (opcional, para query param):</label><br/>
+    <input type="text" id="claveInput" placeholder="Ej: mi-clave-secreta" /><br/>
+    <small>Si se define, se añadirá como <code>&clave=VALOR</code> a la URL del widget.</small><br/><br/>
+
+    <button type="submit">🧪 Cargar Widget con esta Configuración</button>
+  </form>
+
+  <hr />
+
+  <div id="status">
+    <p>Configura los valores y presiona "Cargar Widget".</p>
+  </div>
+
+  <script>
+    const form = document.getElementById('configForm');
+    const statusDiv = document.getElementById('status');
+    const widgetApiUrlInput = document.getElementById('widgetApiUrl');
+    const clientIdInputEl = document.getElementById('clientIdInput');
+    const claveInputEl = document.getElementById('claveInput');
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const clientIdValue = clientIdInputEl.value.trim();
+      const claveValue = claveInputEl.value.trim();
+      let baseWidgetApiUrl = widgetApiUrlInput.value.trim();
+
+      // Limpiar UI del widget anterior
+      const oldChatBubble = document.getElementById('rigbot-bubble-chat-custom');
+      if (oldChatBubble) oldChatBubble.remove();
+      const oldWhatsappBubble = document.getElementById('rigbot-bubble-whatsapp-custom');
+      if (oldWhatsappBubble) oldWhatsappBubble.remove();
+      const oldChatWindow = document.getElementById('rigbot-window-custom');
+      if (oldChatWindow) oldChatWindow.remove();
+      const oldStyles = document.getElementById('rigbot-animation-styles');
+      if (oldStyles) oldStyles.remove();
+      
+      if (window.rigbotConversationHistory) {
+        window.rigbotConversationHistory = [];
+      }
+
+      statusDiv.innerHTML = ''; 
+
+      if (!baseWidgetApiUrl) {
+        statusDiv.innerHTML += `<p style="color: red;">❌ URL del Endpoint del Widget no proporcionada. No se puede cargar.</p>`;
+        return;
+      }
+
+      const effectiveClientId = clientIdValue || "demo-client"; // El API /widget.js usa demo-client si no se le pasa
+      let finalWidgetSrc = baseWidgetApiUrl;
+
+      // Asegurarse de que el clientId siempre se pase, ya que /api/widget lo espera o usa demo-client
+      if (finalWidgetSrc.includes('?')) {
+        finalWidgetSrc += `&clientId=${encodeURIComponent(effectiveClientId)}`;
+      } else {
+        finalWidgetSrc += `?clientId=${encodeURIComponent(effectiveClientId)}`;
+      }
+
+      if (claveValue) {
+        finalWidgetSrc += `&clave=${encodeURIComponent(claveValue)}`;
+      }
+      
+      statusDiv.innerHTML += `<p>ℹ️ Intentando cargar widget desde: <code>${finalWidgetSrc}</code></p>`;
+      if (clientIdValue) {
+         statusDiv.innerHTML += `<p>➡️ Parámetro <code>clientId</code> enviado: ${effectiveClientId}</p>`;
+      } else {
+         statusDiv.innerHTML += `<p>➡️ Parámetro <code>clientId</code> enviado: ${effectiveClientId} (usado como fallback porque el input 'Client ID' estaba vacío)</p>`;
+      }
+
+      if (claveValue) {
+        statusDiv.innerHTML += `<p>➡️ Parámetro <code>clave</code> enviado: ${claveValue}</p>`;
+      } else {
+        statusDiv.innerHTML += `<p>➡️ Parámetro <code>clave</code>: No se envía (input 'Clave' vacío).</p>`;
+      }
+      
+      const existingScript = document.getElementById('rigbot-loader-script-tag');
+      if (existingScript) {
+        existingScript.remove();
+        statusDiv.innerHTML += `<p>🧹 Script cargador anterior eliminado.</p>`;
+      }
+
+      const script = document.createElement('script');
+      script.id = 'rigbot-loader-script-tag';
+      script.src = finalWidgetSrc;
+      script.defer = true;
+
+      script.onload = () => {
+        console.log('Script cargador del widget cargado exitosamente:', finalWidgetSrc);
+        statusDiv.innerHTML += `<p style="color: green;">🚀 Script cargador del widget (desde <code>${baseWidgetApiUrl}</code>) cargado.</p><p>El cargador ahora intentará cargar <code>rigbot-widget-core.js</code> desde el backend.</p>`;
+      };
+      script.onerror = () => {
+        console.error('Error loading widget loader script:', finalWidgetSrc);
+        statusDiv.innerHTML += `<p style="color: red;">❌ ERROR al cargar el script cargador desde <code>${finalWidgetSrc}</code>. Revisa la URL y la consola del navegador (F12 > Network).</p>`;
+      };
+      
+      document.body.appendChild(script);
+      statusDiv.innerHTML += `<p>⏳ Intentando cargar el script cargador del widget...</p>`;
+    });
+  </script>
+</body>
+</html>
