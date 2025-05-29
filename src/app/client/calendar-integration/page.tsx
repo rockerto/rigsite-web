@@ -2,7 +2,7 @@
 "use client";
 import Link from "next/link";
 import { useUser } from "@/context/UserContext"; // Asegúrate que la ruta sea correcta
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { auth } from "@/lib/firebase"; // <--- IMPORTANTE: Importar auth de Firebase
 import { ArrowLeftIcon, AlertTriangleIcon } from "lucide-react"; // Usar AlertTriangleIcon para el botón de desconectar
 
