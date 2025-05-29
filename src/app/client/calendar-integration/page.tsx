@@ -2,7 +2,7 @@
 "use client";
 import Link from "next/link";
 import { useUser } from "@/context/UserContext"; 
-import { useState } from "react"; // useEffect ya no es necesario
+import { useState, useEffect } from "react"; // useEffect para limpiar mensajes
 import { auth } from "@/lib/firebase"; 
 import { ArrowLeftIcon, AlertTriangleIcon } from "lucide-react"; 
 
@@ -26,7 +26,8 @@ const GoogleIcon = () => (
 );
 
 export default function CalendarIntegrationPage() {
-  const { user, clientData, firebaseAuthLoading, clientDataLoading /*, refreshClientData */ } = useUser(); // Comentado refreshClientData por ahora
+  // Asumimos que tu UserContext NO tiene refreshClientData por ahora
+  const { user, clientData, firebaseAuthLoading, clientDataLoading } = useUser(); 
   
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false); 
@@ -35,12 +36,11 @@ export default function CalendarIntegrationPage() {
   const isCalendarConnected = clientData?.googleCalendarConnected || false;
   const connectedEmail = clientData?.googleCalendarEmail || '';
 
+  // useEffect para limpiar mensajes si el estado de conexión cambia (ej. por reload)
   useEffect(() => {
-    // Limpiar mensajes de error/éxito si el estado de conexión cambia por otra vía (ej. refresh de clientData)
-    // o si el usuario navega y vuelve.
     setGeneralError(null);
     setSuccessMessage(null);
-  }, [isCalendarConnected]); // Dependencia: se ejecuta si isCalendarConnected cambia
+  }, [isCalendarConnected]);
 
 
   const handleConnect = async () => {
@@ -55,8 +55,9 @@ export default function CalendarIntegrationPage() {
         setActionLoading(false);
         return;
       }
+      // 'user' viene de useUser(), que ya está basado en auth.currentUser
       if (!user?.uid) { 
-        console.error("CalendarIntegrationPage: UID del usuario no disponible para iniciar OAuth.");
+        console.error("CalendarIntegrationPage: UID del usuario no disponible para iniciar OAuth (user de useUser).");
         setGeneralError("Error de autenticación: No se pudo obtener la información del usuario.");
         setActionLoading(false);
         return;
@@ -79,14 +80,15 @@ export default function CalendarIntegrationPage() {
     setGeneralError(null);
     setSuccessMessage(null);
 
-    if (!auth.currentUser) { 
+    const currentUser = auth.currentUser; // Usar directamente auth.currentUser
+    if (!currentUser) { 
       setGeneralError("No estás autenticado. Por favor, inicia sesión de nuevo.");
       setActionLoading(false);
       return;
     }
 
     try {
-      const idToken = await auth.currentUser.getIdToken(true); 
+      const idToken = await currentUser.getIdToken(true); 
       const rigbotProductBaseUrl = process.env.NEXT_PUBLIC_RIGBOT_PRODUCT_URL;
       if (!rigbotProductBaseUrl) {
         throw new Error("La URL del servicio de RigBot no está configurada.");
@@ -104,19 +106,12 @@ export default function CalendarIntegrationPage() {
 
       if (response.ok) {
         setSuccessMessage(data.message || "Calendario desconectado exitosamente.");
-        // Si tu UserContext no se refresca automáticamente, recargar la página es una opción:
-        // Esto asegura que UserContext obtenga los nuevos datos de Firestore.
-        setTimeout(() => { // Dar tiempo para que el usuario vea el mensaje de éxito
+        // Como no hay refreshClientData en UserContext, recargamos la página
+        // para que UserContext vuelva a leer los datos actualizados de Firestore.
+        setTimeout(() => { 
             window.location.reload();
-        }, 2000); // Recargar después de 2 segundos
+        }, 2000); // Recargar después de 2 segundos para que el usuario vea el mensaje.
         
-        // Si tienes una función refreshClientData en tu UserContext, úsala en lugar de reload:
-        // if (typeof refreshClientData === 'function') {
-        //   await refreshClientData(); 
-        // } else {
-        //   window.location.reload();
-        // }
-
       } else {
         setGeneralError(data.error || "Ocurrió un error al desconectar el calendario.");
       }
@@ -138,7 +133,7 @@ export default function CalendarIntegrationPage() {
     );
   }
 
-  if (!user) {
+  if (!user) { // user de useUser()
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-red-50 text-center text-slate-700 p-6">
         <ExclamationTriangleIcon className="text-red-700 w-6 h-6" />
@@ -171,14 +166,13 @@ export default function CalendarIntegrationPage() {
             </p>
         )}
 
-
         {generalError && (
           <div className="flex items-center gap-2 p-3 my-4 bg-red-100 border border-red-200 text-red-700 rounded-lg text-sm shadow-md">
             <ExclamationTriangleIcon className="text-red-700 w-5 h-5" /> 
             <span>{generalError}</span>
           </div>
         )}
-        {successMessage && !generalError && ( // Solo mostrar mensaje de éxito si no hay error
+        {successMessage && !generalError && (
             <div className="flex items-center justify-center gap-2 p-3 my-4 bg-green-50 border border-green-300 text-green-800 rounded-lg text-sm shadow-sm">
                 <CheckCircleIcon className="text-green-600 w-5 h-5" />
                 <span>{successMessage}</span>
