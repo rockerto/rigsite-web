@@ -1,19 +1,19 @@
 // src/app/client/calendar-integration/page.tsx
 "use client";
 import Link from "next/link";
-import { useUser } from "@/context/UserContext"; // Asegúrate que la ruta sea correcta
-import { useState } from "react";
-import { auth } from "@/lib/firebase"; // <--- IMPORTANTE: Importar auth de Firebase
-import { ArrowLeftIcon, AlertTriangleIcon } from "lucide-react"; // Usar AlertTriangleIcon para el botón de desconectar
+import { useUser } from "@/context/UserContext"; 
+import { useState } from "react"; // useEffect ya no es necesario
+import { auth } from "@/lib/firebase"; 
+import { ArrowLeftIcon, AlertTriangleIcon } from "lucide-react"; 
 
-// --- ICONOS REUTILIZADOS (o usa los tuyos) ---
+// --- ICONOS REUTILIZADOS ---
 const SpinnerIcon = () => (
   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-600"></div>
 );
 const CheckCircleIcon = ({ className = "w-6 h-6" }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
 );
-const ExclamationTriangleIcon = ({ className = "w-6 h-6" }) => ( // Para errores generales
+const ExclamationTriangleIcon = ({ className = "w-6 h-6" }) => ( 
   <svg className={className} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.216 3.031-1.742 3.031H4.42c-1.526 0-2.492-1.697-1.742-3.031l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
 );
 const GoogleIcon = () => (
@@ -26,27 +26,21 @@ const GoogleIcon = () => (
 );
 
 export default function CalendarIntegrationPage() {
-  // Asumo que refreshClientData es una función de tu UserContext para recargar los datos del cliente
-  const { user, clientData, firebaseAuthLoading, clientDataLoading, refreshClientData } = useUser(); 
+  const { user, clientData, firebaseAuthLoading, clientDataLoading /*, refreshClientData */ } = useUser(); // Comentado refreshClientData por ahora
   
-  // No necesitamos un estado local 'isConnected' si clientData lo provee directamente.
-  // const [isConnected, setIsConnected] = useState(false); 
-  const [generalError, setGeneralError] = useState<string | null>(null); // Renombrado para claridad
-  const [actionLoading, setActionLoading] = useState(false); // Para ambos botones
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false); 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-
-  // useEffect(() => {
-  //   if (clientData) { // No necesitamos setIsConnected si usamos clientData directamente
-  //     // setIsConnected(clientData.googleCalendarConnected || false); 
-  //     // Limpiar mensajes al cargar datos nuevos
-  //     setGeneralError(null);
-  //     setSuccessMessage(null);
-  //   }
-  // }, [clientData]);
 
   const isCalendarConnected = clientData?.googleCalendarConnected || false;
   const connectedEmail = clientData?.googleCalendarEmail || '';
+
+  useEffect(() => {
+    // Limpiar mensajes de error/éxito si el estado de conexión cambia por otra vía (ej. refresh de clientData)
+    // o si el usuario navega y vuelve.
+    setGeneralError(null);
+    setSuccessMessage(null);
+  }, [isCalendarConnected]); // Dependencia: se ejecuta si isCalendarConnected cambia
 
 
   const handleConnect = async () => {
@@ -61,13 +55,12 @@ export default function CalendarIntegrationPage() {
         setActionLoading(false);
         return;
       }
-      if (!user?.uid) { // user viene de useUser()
+      if (!user?.uid) { 
         console.error("CalendarIntegrationPage: UID del usuario no disponible para iniciar OAuth.");
         setGeneralError("Error de autenticación: No se pudo obtener la información del usuario.");
         setActionLoading(false);
         return;
       }
-      // La redirección se encarga, no necesitamos setActionLoading(false) aquí.
       window.location.href = `${rigbotProductBaseUrl}/api/auth/google/initiate?userId=${user.uid}`;
     } catch (e) {
       const error = e as Error;
@@ -86,14 +79,14 @@ export default function CalendarIntegrationPage() {
     setGeneralError(null);
     setSuccessMessage(null);
 
-    if (!auth.currentUser) { // Usar la instancia de auth importada
+    if (!auth.currentUser) { 
       setGeneralError("No estás autenticado. Por favor, inicia sesión de nuevo.");
       setActionLoading(false);
       return;
     }
 
     try {
-      const idToken = await auth.currentUser.getIdToken(true); // Forzar refresco del token
+      const idToken = await auth.currentUser.getIdToken(true); 
       const rigbotProductBaseUrl = process.env.NEXT_PUBLIC_RIGBOT_PRODUCT_URL;
       if (!rigbotProductBaseUrl) {
         throw new Error("La URL del servicio de RigBot no está configurada.");
@@ -111,14 +104,19 @@ export default function CalendarIntegrationPage() {
 
       if (response.ok) {
         setSuccessMessage(data.message || "Calendario desconectado exitosamente.");
-        if (typeof refreshClientData === 'function') {
-          await refreshClientData(); // ¡Importante! Refrescar los datos del cliente
-        } else {
-          // Si no hay refreshClientData, al menos intentamos forzar un reload de la página
-          // para que vea los cambios, aunque es menos ideal.
-          console.warn("refreshClientData no está disponible en UserContext, recargando página...");
-          window.location.reload();
-        }
+        // Si tu UserContext no se refresca automáticamente, recargar la página es una opción:
+        // Esto asegura que UserContext obtenga los nuevos datos de Firestore.
+        setTimeout(() => { // Dar tiempo para que el usuario vea el mensaje de éxito
+            window.location.reload();
+        }, 2000); // Recargar después de 2 segundos
+        
+        // Si tienes una función refreshClientData en tu UserContext, úsala en lugar de reload:
+        // if (typeof refreshClientData === 'function') {
+        //   await refreshClientData(); 
+        // } else {
+        //   window.location.reload();
+        // }
+
       } else {
         setGeneralError(data.error || "Ocurrió un error al desconectar el calendario.");
       }
@@ -180,7 +178,7 @@ export default function CalendarIntegrationPage() {
             <span>{generalError}</span>
           </div>
         )}
-        {successMessage && !generalError && (
+        {successMessage && !generalError && ( // Solo mostrar mensaje de éxito si no hay error
             <div className="flex items-center justify-center gap-2 p-3 my-4 bg-green-50 border border-green-300 text-green-800 rounded-lg text-sm shadow-sm">
                 <CheckCircleIcon className="text-green-600 w-5 h-5" />
                 <span>{successMessage}</span>
@@ -195,7 +193,7 @@ export default function CalendarIntegrationPage() {
               className="w-full flex justify-center items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-md transition disabled:opacity-50"
             >
               {actionLoading && <SpinnerIcon />}
-              {!actionLoading && <AlertTriangleIcon className="text-white w-5 h-5" />} {/* Icono para desconectar */}
+              {!actionLoading && <AlertTriangleIcon className="text-white w-5 h-5" />} 
               {actionLoading ? "Desconectando..." : "Desconectar Calendario"}
             </button>
           </div>
