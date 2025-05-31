@@ -256,7 +256,8 @@ export default function LeadSettingsPage() {
                                     <label htmlFor="clinicNameForLeadPrompt" className="block text-sm font-semibold text-slate-700 mb-1">
                                         Nombre de tu Clínica (para el bot)
                                     </label>
-                                    <p className="text-xs text-slate-500 mb-2">Este nombre usará el bot al ofrecer la captura de leads (Ej: "para Clínica Dental Sonrisas").</p>
+                                    {/* ***** LÍNEA CORREGIDA AQUÍ ***** */}
+                                    <p className="text-xs text-slate-500 mb-2">Este nombre usará el bot al ofrecer la captura de leads (Ej: {'"para Clínica Dental Sonrisas"'}).</p>
                                     <input
                                         id="clinicNameForLeadPrompt"
                                         type="text"
